@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Absen Pengenalan Wajah</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/face-api.js/0.22.2/face-api.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 30px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .status {
+            background: #f7fafc;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            border-left: 4px solid #4299e1;
+            font-weight: 500;
+        }
+
+        .status.loading {
+            border-left-color: #ed8936;
+            color: #ed8936;
+        }
+
+        .status.ready {
+            border-left-color: #48bb78;
+            color: #48bb78;
+        }
+
+        .status.error {
+            border-left-color: #f56565;
+            color: #f56565;
+        }
+
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto 20px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        #video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            min-width: 120px;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .employee-list {
+            background: #f7fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .employee-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .employee-name {
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .employee-id {
+            font-size: 14px;
+            color: #718096;
+        }
+
+        .attendance-log {
+            background: #f7fafc;
+            border-radius: 12px;
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #48bb78;
+        }
+
+        .log-item.masuk {
+            border-left-color: #48bb78;
+        }
+
+        .log-item.keluar {
+            border-left-color: #f56565;
+        }
+
+        .log-name {
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .log-time {
+            font-size: 12px;
+            color: #718096;
+        }
+
+        .log-type {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .log-type.masuk {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .log-type.keluar {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .match-info {
+            background: #e6fffa;
+            border: 2px solid #4fd1c7;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .match-info.no-match {
+            background: #fed7d7;
+            border-color: #f56565;
+        }
+
+        .confidence-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f56565 0%, #ed8936 50%, #48bb78 100%);
+            transition: width 0.3s ease;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+                margin: 5px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            button {
+                padding: 12px 16px;
+                font-size: 14px;
+            }
+
+            .control-group {
+                flex-direction: column;
+            }
+
+            .control-group button {
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Aplikasi Absen Pengenalan Wajah</h1>
+        
+        <div id="status" class="status loading">
+            Memuat model pengenalan wajah...
+        </div>
+
+        <div class="camera-container">
+            <video id="video" autoplay muted playsinline></video>
+            <canvas id="overlay"></canvas>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <button id="startCamera" class="btn-primary">📷 Mulai Kamera</button>
+                <button id="stopCamera" class="btn-danger" disabled>⏹️ Stop Kamera</button>
+            </div>
+            <div class="control-group">
+                <button id="registerFace" class="btn-secondary" disabled>➕ Daftar Wajah</button>
+                <button id="attendanceIn" class="btn-primary" disabled>✅ Absen Masuk</button>
+                <button id="attendanceOut" class="btn-danger" disabled>❌ Absen Keluar</button>
+            </div>
+        </div>
+
+        <div id="matchInfo" class="match-info" style="display: none;">
+            <div id="matchName"></div>
+            <div id="matchConfidence"></div>
+            <div class="confidence-bar">
+                <div id="confidenceFill" class="confidence-fill"></div>
+            </div>
+        </div>
+
+        <div class="employee-list">
+            <h3>👥 Karyawan Terdaftar</h3>
+            <div id="employeeList"></div>
+        </div>
+
+        <div class="attendance-log">
+            <h3>📋 Log Absensi</h3>
+            <div id="attendanceLog"></div>
+        </div>
+    </div>
+
+    <script>
+        class FaceAttendanceApp {
+            constructor() {
+                this.video = document.getElementById('video');
+                this.overlay = document.getElementById('overlay');
+                this.ctx = this.overlay.getContext('2d');
+                this.isModelLoaded = false;
+                this.isCameraActive = false;
+                this.currentStream = null;
+                this.employees = JSON.parse(localStorage.getItem('employees')) || [];
+                this.attendanceLog = JSON.parse(localStorage.getItem('attendanceLog')) || [];
+                this.currentFaceDescriptor = null;
+                this.detectionInterval = null;
+                this.lastMatchTime = 0;
+                
+                this.initializeApp();
+            }
+
+            async initializeApp() {
+                try {
+                    await this.loadModels();
+                    this.setupEventListeners();
+                    this.updateEmployeeList();
+                    this.updateAttendanceLog();
+                    this.updateStatus('Model berhasil dimuat! Klik "Mulai Kamera" untuk memulai.', 'ready');
+                } catch (error) {
+                    console.error('Error initializing app:', error);
+                    this.updateStatus('Gagal memuat model. Periksa koneksi internet.', 'error');
+                }
+            }
+
+            async loadModels() {
+                const MODEL_URL = 'https://cdnjs.cloudflare.com/ajax/libs/face-api.js/0.22.2/models/';
+                
+                await Promise.all([
+                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+                
+                this.isModelLoaded = true;
+            }
+
+            setupEventListeners() {
+                document.getElementById('startCamera').addEventListener('click', () => this.startCamera());
+                document.getElementById('stopCamera').addEventListener('click', () => this.stopCamera());
+                document.getElementById('registerFace').addEventListener('click', () => this.registerFace());
+                document.getElementById('attendanceIn').addEventListener('click', () => this.recordAttendance('masuk'));
+                document.getElementById('attendanceOut').addEventListener('click', () => this.recordAttendance('keluar'));
+            }
+
+            async startCamera() {
+                if (!this.isModelLoaded) {
+                    alert('Model belum dimuat. Tunggu sebentar...');
+                    return;
+                }
+
+                try {
+                    const constraints = {
+                        video: {
+                            width: { ideal: 640 },
+                            height: { ideal: 480 },
+                            facingMode: 'user'
+                        }
+                    };
+
+                    this.currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    this.video.srcObject = this.currentStream;
+                    
+                    this.video.addEventListener('loadedmetadata', () => {
+                        this.overlay.width = this.video.videoWidth;
+                        this.overlay.height = this.video.videoHeight;
+                        this.startDetection();
+                    });
+
+                    this.isCameraActive = true;
+                    this.updateButtons();
+                    this.updateStatus('Kamera aktif. Deteksi wajah berjalan...', 'ready');
+                } catch (error) {
+                    console.error('Error starting camera:', error);
+                    this.updateStatus('Gagal mengakses kamera. Periksa izin kamera.', 'error');
+                }
+            }
+
+            stopCamera() {
+                if (this.currentStream) {
+                    this.currentStream.getTracks().forEach(track => track.stop());
+                    this.currentStream = null;
+                }
+                
+                if (this.detectionInterval) {
+                    clearInterval(this.detectionInterval);
+                    this.detectionInterval = null;
+                }
+
+                this.video.srcObject = null;
+                this.ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
+                this.isCameraActive = false;
+                this.currentFaceDescriptor = null;
+                this.updateButtons();
+                this.updateStatus('Kamera dimatikan.', 'ready');
+                this.hideMatchInfo();
+            }
+
+            startDetection() {
+                this.detectionInterval = setInterval(async () => {
+                    if (!this.isCameraActive || this.video.paused || this.video.ended) {
+                        return;
+                    }
+
+                    try {
+                        const detections = await faceapi
+                            .detectAllFaces(this.video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+                            .withFaceLandmarks()
+                            .withFaceDescriptors();
+
+                        this.ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
+
+                        if (detections.length > 0) {
+                            const detection = detections[0];
+                            this.currentFaceDescriptor = detection.descriptor;
+                            
+                            // Gambar kotak deteksi
+                            this.drawDetectionBox(detection);
+                            
+                            // Cocokkan dengan wajah terdaftar
+                            this.matchFace(detection.descriptor);
+                        } else {
+                            this.currentFaceDescriptor = null;
+                            this.hideMatchInfo();
+                        }
+                    } catch (error) {
+                        console.error('Detection error:', error);
+                    }
+                }, 200); // Deteksi setiap 200ms untuk performa yang baik
+            }
+
+            drawDetectionBox(detection) {
+                const { x, y, width, height } = detection.detection.box;
+                
+                this.ctx.strokeStyle = '#4fd1c7';
+                this.ctx.lineWidth = 3;
+                this.ctx.strokeRect(x, y, width, height);
+                
+                // Gambar titik landmark
+                const landmarks = detection.landmarks;
+                this.ctx.fillStyle = '#4fd1c7';
+                landmarks.positions.forEach(point => {
+                    this.ctx.beginPath();
+                    this.ctx.arc(point.x, point.y, 1, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                });
+            }
+
+            matchFace(descriptor) {
+                if (this.employees.length === 0) {
+                    this.hideMatchInfo();
+                    return;
+                }
+
+                let bestMatch = null;
+                let bestDistance = 1;
+
+                this.employees.forEach(employee => {
+                    const distance = faceapi.euclideanDistance(descriptor, employee.descriptor);
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        bestMatch = employee;
+                    }
+                });
+
+                const threshold = 0.6; // Ambang batas untuk pengenalan
+                const confidence = Math.max(0, (1 - bestDistance) * 100);
+
+                if (bestMatch && bestDistance < threshold) {
+                    this.showMatchInfo(bestMatch.name, confidence, true);
+                } else {
+                    this.showMatchInfo('Wajah tidak dikenali', confidence, false);
+                }
+            }
+
+            showMatchInfo(name, confidence, isMatch) {
+                const matchInfo = document.getElementById('matchInfo');
+                const matchName = document.getElementById('matchName');
+                const matchConfidence = document.getElementById('matchConfidence');
+                const confidenceFill = document.getElementById('confidenceFill');
+
+                matchName.textContent = name;
+                matchConfidence.textContent = `Tingkat kepercayaan: ${confidence.toFixed(1)}%`;
+                confidenceFill.style.width = `${confidence}%`;
+
+                matchInfo.className = isMatch ? 'match-info' : 'match-info no-match';
+                matchInfo.style.display = 'block';
+            }
+
+            hideMatchInfo() {
+                document.getElementById('matchInfo').style.display = 'none';
+            }
+
+            async registerFace() {
+                if (!this.currentFaceDescriptor) {
+                    alert('Tidak ada wajah yang terdeteksi. Pastikan wajah Anda terlihat di kamera.');
+                    return;
+                }
+
+                const name = prompt('Masukkan nama karyawan:');
+                if (!name) return;
+
+                const id = prompt('Masukkan ID karyawan:');
+                if (!id) return;
+
+                // Cek apakah ID sudah ada
+                if (this.employees.some(emp => emp.id === id)) {
+                    alert('ID karyawan sudah terdaftar!');
+                    return;
+                }
+
+                const employee = {
+                    id: id,
+                    name: name,
+                    descriptor: this.currentFaceDescriptor,
+                    registeredAt: new Date().toISOString()
+                };
+
+                this.employees.push(employee);
+                localStorage.setItem('employees', JSON.stringify(this.employees));
+                
+                this.updateEmployeeList();
+                alert(`Wajah ${name} berhasil didaftarkan!`);
+            }
+
+            recordAttendance(type) {
+                if (!this.currentFaceDescriptor) {
+                    alert('Tidak ada wajah yang terdeteksi.');
+                    return;
+                }
+
+                if (this.employees.length === 0) {
+                    alert('Belum ada karyawan yang terdaftar.');
+                    return;
+                }
+
+                let bestMatch = null;
+                let bestDistance = 1;
+
+                this.employees.forEach(employee => {
+                    const distance = faceapi.euclideanDistance(this.currentFaceDescriptor, employee.descriptor);
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        bestMatch = employee;
+                    }
+                });
+
+                const threshold = 0.6;
+                if (bestMatch && bestDistance < threshold) {
+                    const now = new Date();
+                    const attendance = {
+                        id: bestMatch.id,
+                        name: bestMatch.name,
+                        type: type,
+                        time: now.toISOString(),
+                        confidence: Math.max(0, (1 - bestDistance) * 100)
+                    };
+
+                    this.attendanceLog.unshift(attendance);
+                    localStorage.setItem('attendanceLog', JSON.stringify(this.attendanceLog));
+                    
+                    this.updateAttendanceLog();
+                    alert(`Absen ${type} berhasil dicatat untuk ${bestMatch.name}`);
+                } else {
+                    alert('Wajah tidak dikenali. Pastikan Anda sudah terdaftar.');
+                }
+            }
+
+            updateEmployeeList() {
+                const employeeList = document.getElementById('employeeList');
+                
+                if (this.employees.length === 0) {
+                    employeeList.innerHTML = '<p style="text-align: center; color: #718096;">Belum ada karyawan terdaftar</p>';
+                    return;
+                }
+
+                employeeList.innerHTML = this.employees.map(employee => `
+                    <div class="employee-item">
+                        <div>
+                            <div class="employee-name">${employee.name}</div>
+                            <div class="employee-id">ID: ${employee.id}</div>
+                        </div>
+                        <button onclick="app.deleteEmployee('${employee.id}')" class="btn-danger" style="padding: 5px 10px; font-size: 12px;">Hapus</button>
+                    </div>
+                `).join('');
+            }
+
+            deleteEmployee(id) {
+                if (confirm('Yakin ingin menghapus karyawan ini?')) {
+                    this.employees = this.employees.filter(emp => emp.id !== id);
+                    localStorage.setItem('employees', JSON.stringify(this.employees));
+                    this.updateEmployeeList();
+                }
+            }
+
+            updateAttendanceLog() {
+                const attendanceLog = document.getElementById('attendanceLog');
+                
+                if (this.attendanceLog.length === 0) {
+                    attendanceLog.innerHTML = '<p style="text-align: center; color: #718096;">Belum ada log absensi</p>';
+                    return;
+                }
+
+                attendanceLog.innerHTML = this.attendanceLog.slice(0, 50).map(log => {
+                    const date = new Date(log.time);
+                    return `
+                        <div class="log-item ${log.type}">
+                            <div>
+                                <div class="log-name">${log.name}</div>
+                                <div class="log-time">${date.toLocaleDateString('id-ID')} ${date.toLocaleTimeString('id-ID')}</div>
+                            </div>
+                            <div class="log-type ${log.type}">${log.type.toUpperCase()}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            updateButtons() {
+                document.getElementById('startCamera').disabled = this.isCameraActive;
+                document.getElementById('stopCamera').disabled = !this.isCameraActive;
+                document.getElementById('registerFace').disabled = !this.isCameraActive;
+                document.getElementById('attendanceIn').disabled = !this.isCameraActive;
+                document.getElementById('attendanceOut').disabled = !this.isCameraActive;
+            }
+
+            updateStatus(message, type = 'loading') {
+                const status = document.getElementById('status');
+                status.textContent = message;
+                status.className = `status ${type}`;
+            }
+        }
+
+        // Initialize app when page loads
+        let app;
+        window.addEventListener('DOMContentLoaded', () => {
+            app = new FaceAttendanceApp();
+        });
+    </script>
+</body>
+</html>
